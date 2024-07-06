@@ -1,0 +1,82 @@
+import processing.serial.*;
+
+Serial port;
+
+int angle;
+float distance;
+
+// Define the conversion factor
+float conversionFactor = 20; // 20 pixels per centimeter
+
+void setup() {
+  size(1200, 700);
+  background(0); // Set background color to black
+  port = new Serial(this, "COM7", 115200); // Change COM port as necessary
+}
+
+void draw() {
+  noStroke();
+  fill(0, 4);
+  rect(0, 0, width, height-height*0.065);
+
+  fill(98, 245, 31); // green color
+
+  drawRadar();
+  drawObject();
+}
+
+void drawRadar() {
+  while (port.available() > 0) {
+    String data = port.readStringUntil('\n');
+    if (data != null) {
+      String[] parts = split(data, '*');
+      if (parts.length == 2) {
+        try {
+          angle = int(parts[0]);
+          distance = float(parts[1]);
+
+          // Calculate inverted coordinates
+          float x = width/2 - cos(radians(angle)) * distance * conversionFactor;
+          float y = height/2 - sin(radians(angle)) * distance * conversionFactor;
+          
+          stroke(0, 255, 0); // Set color to green if distance is greater than or equal to 50
+
+          // Draw radar line
+          line(width/2, height/2, x, y);
+          
+          // Draw distance lines
+          drawDistanceLines(distance);
+          
+        } catch (NumberFormatException e) {
+          println("Error parsing data: " + data);
+        }
+      } else {
+        println("Invalid data format: " + data);
+      }
+    }
+  }
+}
+
+void drawObject() {
+  // Use the global angle and distance values
+  pushMatrix();
+
+  translate(width/2, height/2); // moves the starting coordinates to the center
+  stroke(255, 0, 0); // red color
+  float pixDist = distance * conversionFactor; // Convert distance to pixels
+  // Limiting the range to 40 cms
+  if (distance < 200) {
+    // Draw the red line using the global angle
+    line(pixDist * cos(radians(angle)), -pixDist * sin(radians(angle)), (width - width * 0.505) * cos(radians(angle)), -(width - width * 0.505) * sin(radians(angle)));
+  }
+  popMatrix();
+}
+
+void drawDistanceLines(float distance) {
+  // Draw concentric circles for different distances
+  noFill();
+  stroke(255);
+  for (int i = 10; i <= distance; i += 10) {
+    ellipse(width/2, height/2, i * conversionFactor * 2, i * conversionFactor * 2); // Convert distance to pixels
+  }
+}
