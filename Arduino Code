@@ -1,0 +1,116 @@
+#include <Wire.h>
+#include <Servo.h>
+#include <TFLI2C.h>
+#include <LiquidCrystal_I2C.h>
+
+#define TRIGGER_PIN D5
+#define ECHO_PIN D6
+#define BUZZER_PIN D4
+#define LED_PIN D3
+
+TFLI2C tflI2C;
+int16_t tfDist; 
+int16_t tfAddr = TFL_DEF_ADR;
+
+int measureDistance();
+void play();
+float getDistance(); // Function prototype for getDistance()
+
+Servo servo;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(TRIGGER_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+  servo.attach(D8);
+  lcd.init();                      
+  lcd.backlight();
+}
+
+void loop() {
+  int distanceUltraSonic = measureDistance();
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Distance: ");
+  lcd.print(distanceUltraSonic);
+  lcd.print(" cm");
+  delay(50);
+
+  int angle = 0;
+
+  for (angle = 0; angle <= 180; angle++) {
+    servo.write(angle);
+    float distanceLidar = getDistance();
+    Serial.print(angle);
+    Serial.print("*");
+    Serial.println(distanceLidar);
+    distanceUltraSonic = measureDistance();
+    if (distanceUltraSonic <= 20) {
+      while(distanceUltraSonic < 20) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Object Detected at ");
+        lcd.print(distanceUltraSonic);
+        lcd.print("cm");
+        play();
+        distanceUltraSonic = measureDistance();
+      }
+    }
+  }
+
+  for (angle = 180; angle >= 0; angle--) {
+    servo.write(angle);
+    float distanceLidar = getDistance();
+    Serial.print(angle);
+    Serial.print("*");
+    Serial.println(distanceLidar);
+    distanceUltraSonic = measureDistance();
+    if (distanceUltraSonic <= 20) {
+      while(distanceUltraSonic < 20) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Object Detected at ");
+        lcd.print(distanceUltraSonic);
+        lcd.print("cm");
+        play();
+        distanceUltraSonic = measureDistance();
+      }
+    }
+  }
+}
+
+int measureDistance() {
+  digitalWrite(TRIGGER_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIGGER_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGGER_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH);
+  int distanceUltraSonic = duration * 0.034 / 2;
+  return distanceUltraSonic;
+}
+
+void play() {
+  int frequency = 1000;
+    tone(BUZZER_PIN, frequency);
+    delay(10);
+
+    digitalWrite(LED_PIN, HIGH); 
+    delay(50); 
+    digitalWrite(LED_PIN, LOW);
+    delay(50);
+
+    noTone(BUZZER_PIN);
+  
+}
+
+float getDistance() {
+  tflI2C.getData(tfDist, tfAddr);
+  delay(50); 
+  return tfDist;
+}
